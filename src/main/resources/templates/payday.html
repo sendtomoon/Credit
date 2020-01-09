@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<script src="jquery.js"></script>
+	<link rel="stylesheet" type="text/css" href="mainstyle.css">
+	<title>Credit Card Manager</title>
+	<script type="text/javascript" src="main.js"></script>
+</head>
+<body>
+	<div class="webTitle"><p style="font-size: 5rem;">卡片信息</p></div>
+	<div id="buttons" class="buttonArray">
+		<table class="tableDetail">
+			<tr>
+				<td align="center"><button class="buttonSingle" onclick="hrefBills()">账单日</button></td>
+				<td align="center"><button class="buttonSingle" onclick="hrefPayday()">还款日</button></td>
+				<td align="center"><button class="buttonSingle" onclick="hrefFreeday()">免息日</button></td>
+			</tr>
+		</table>
+	</div>
+	<div id="mainDiv" class="mainDiv">
+		<div th:each="c:${payday}">
+		<p class="bankName" th:text="${c.nickName}"></p>
+		<p class="describeWarn" th:text="${c.describe}"></p>
+		</div>
+	</div>
+</body>
+</html>
