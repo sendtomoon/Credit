@@ -2,14 +2,17 @@ package com.sendtomoon.credit.service;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.ModelAndView;
 
 import com.sendtomoon.credit.DateHelper;
 import com.sendtomoon.credit.DateTimeUtils;
@@ -27,19 +30,96 @@ public class CreditService {
 	@Autowired
 	CreditDAO dao;
 
-	public List<BillInfoDTO> freeday() {
-		return null;
+	public HashMap<String, Object> getCharts() {
+		HashMap<String, Object> map = new HashMap<String, Object>();
+		List<CardDTO> cards = dao.findAll();
+		List<String> nameList = new ArrayList<String>();
+		for (CardDTO card : cards) {
+			nameList.add(card.getNickname());
+		}
+		map.put("cards", nameList.toArray());
+		return map;
 	}
-	
+
+	public List<BillInfoDTO> freeday() {
+		List<CardDTO> cards = dao.findAll();
+		List<BillInfoDTO> bills = new ArrayList<BillInfoDTO>();
+		for (CardDTO card : cards) {
+			BillInfoDTO billDTO = new BillInfoDTO();
+			billDTO.setNickName(card.getNickname());
+			Integer billDay = Integer.valueOf(card.getBillDate());
+			Integer nowDay = Integer.valueOf(this.getNowDay());
+			Calendar cal = Calendar.getInstance();
+			String daysCount = "";
+			if (nowDay > billDay) {// 本月已出账单(当前日大于账单日)
+				cal.add(Calendar.MONTH, 1);
+
+			} else if (nowDay < billDay) {// 本月未出账单(当前日小于账单日)
+				cal.set(Calendar.DAY_OF_MONTH, billDay);
+				daysCount = this.calcDays(cal.getTime());
+			} else {
+				daysCount = "-1";
+			}
+
+			Date billDate = DateTimeUtils.indentDate(cal.getTime());
+			Date repayDate = this.getRepayDate(card.getRepayDayFixed(), card.getRepaymentDays(), billDate);
+			daysCount = this.calcDays(repayDate);
+			billDTO.setFinalRepayDate(DateHelper.date2Str(repayDate, DateHelper.DATE_FMT_SHORT_CN));
+
+			billDTO.setOrder(Integer.valueOf(daysCount));
+			billDTO.setDescribe("最长免息日" + daysCount + "天");
+			bills.add(billDTO);
+		}
+		Collections.sort(bills, new Comparator<BillInfoDTO>() {
+			@Override
+			public int compare(BillInfoDTO o1, BillInfoDTO o2) {
+				try {
+					return (o1.getOrder() - o2.getOrder()) * -1;
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				return 0;
+			}
+		});
+		return bills;
+	}
+
 	public List<BillInfoDTO> bills() {
 		List<CardDTO> cards = dao.findAll();
 		List<BillInfoDTO> bills = new ArrayList<BillInfoDTO>();
 		for (CardDTO card : cards) {
 			BillInfoDTO billDTO = new BillInfoDTO();
 			billDTO.setNickName(card.getNickname());
-			billDTO.setDescribe("test");
+
+			Integer billDay = Integer.valueOf(card.getBillDate());
+			Integer nowDay = Integer.valueOf(this.getNowDay());
+			Calendar cal = Calendar.getInstance();
+			String daysCount = "";
+			if (nowDay > billDay) {// 本月已出账单(当前日大于账单日)
+				cal.add(Calendar.MONTH, 1);
+				cal.set(Calendar.DAY_OF_MONTH, billDay);
+				daysCount = this.calcDays(cal.getTime());
+			} else if (nowDay < billDay) {// 本月未出账单(当前日小于账单日)
+				cal.set(Calendar.DAY_OF_MONTH, billDay);
+				daysCount = this.calcDays(cal.getTime());
+			} else {
+				daysCount = "-1";
+			}
+			billDTO.setOrder(Integer.valueOf(daysCount));
+			billDTO.setDescribe("距下次账单日" + daysCount + "天");
 			bills.add(billDTO);
 		}
+		Collections.sort(bills, new Comparator<BillInfoDTO>() {
+			@Override
+			public int compare(BillInfoDTO o1, BillInfoDTO o2) {
+				try {
+					return (o1.getOrder() - o2.getOrder()) * -1;
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				return 0;
+			}
+		});
 		return bills;
 	}
 
@@ -156,8 +236,8 @@ public class CreditService {
 	}
 
 	/** 计算今天到最后还款日天数 */
-	private String calcDays(Date repayDate) {
-		long d1 = repayDate.getTime();
+	private String calcDays(Date finalDate) {
+		long d1 = DateTimeUtils.indentDate(finalDate).getTime();
 		long d2 = DateTimeUtils.indentDate(new Date()).getTime();
 		long days = (d1 - d2) / 60 / 60 / 24 / 1000l;
 		return String.valueOf(days);
